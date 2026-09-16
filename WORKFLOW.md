@@ -1,42 +1,33 @@
-# 브랜치 워크플로우
+# 브랜치 워크플로우 (A: cherry-pick 승격)
 
-## 브랜치 구조
+## 구조
 
 ```
-main ──(분기)──▶ feat/*, fix/*
-                    │
-                    ├──PR──▶ dev       (통합 검증 전용, 승격 경로 아님)
-                    ├──PR──▶ staging   (출시 전 검증)
-                    └──PR──▶ main      (최종 출시)
+main (=prod 서버)
+ ▲  cherry-pick 승격 PR
+staging (=staging 서버)
+ ▲  cherry-pick 승격 PR
+dev (=통합 테스트 서버)
+ ▲  squash-merge PR
+feat/*, fix/*   ← 분기는 항상 main 기준
 ```
-
-- **main**: 배포 가능한 최종 상태. feat가 직접 머지되는 유일한 종점.
-- **staging**: main 직전 검증 환경. feat가 머지된다.
-- **dev**: 여러 feat를 함께 띄워 상호작용을 테스트하는 **모래상자**. dev는 언제든 main+feat들을 재조합해 재구성할 수 있고, dev에서 staging/main으로 코드가 흘러가지 **않는다**.
 
 ## 규칙
 
-1. 기능 브랜치는 반드시 **main**에서 분기한다.
-   ```bash
-   git checkout main && git pull
-   git checkout -b feat/기능명
-   ```
-2. 같은 feat 브랜치를 **순서대로 세 환경에 머지**한다. 각 단계는 개별 PR.
-   - `feat/* → dev` : 다른 기능들과 함께 통합 테스트
-   - `feat/* → staging` : dev 검증 통과 후 승격
-   - `feat/* → main` : staging 검증 통과 후 출시
-3. **dev를 feat 브랜치에 머지/rebase로 끌어오지 않는다.** dev의 코드(=남의 기능)가 feat 조상에 들어와
-   "단독 승격"이 깨진다. (feat/theme-toggle가 dev 기반으로 rebase되어 staging에 편승한 사고 사례)
-4. 충돌은 각 환경 머지 PR 지점에서 해결한다.
-   - staging/main에 이미 들어간 코드와 충돌하면 → 그 환경 브랜치를 feat에 머지하지 말고,
-     머지 커밋 자체에서 해결하거나 conflict-free rebase로 대응한다.
-5. 환경 브랜치(dev/staging/main)끼리의 머지는 없다. 흐르는 방향은 항상 feat → 환경.
-6. 머지方式是 일반 merge (squash 금지) — 같은 feat 커밋이 여러 환경을 지나는 것을
-   히스토리 그래프로 추적할 수 있어야 함.
+1. **분기**: `git checkout main && git pull && git checkout -b feat/기능명`
+2. **dev 통합**: 기능 완료 → `feat/* → dev` PR (squash-merge 허용).
+   dev에는 항상 모든 기능이 들어간다. 통합/회귀 테스트는 dev 서버에서.
+3. **staging 승격**: dev에서 검증된 기능을 **올리기로 결정된 시점**에
+   dev의 머지 커밋을 `staging`으로 cherry-pick (PR).
+4. **main 출시**: staging 검증 통과 → 같은 커밋을 `main`으로 cherry-pick (PR).
+5. cherry-pick는 항상 아래 코드 형태 커밋만 대상으로 한다 — 일반 머지 커밋 금지:
+   - dev: squash 머지 1커밋 = 기능 1개 → 그대로 cherry-pick 가능
+   - 승격 PR에는 `cherry picked from commit <dev SHA>` trailer를 남겨 추적성 확보
+6. 환경 브랜치(dev↔staging↔main) 간 통상 머지 금지. 흐르는 건 cherry-pick뿐.
+7. 충돌은 승격 시점에 해당 환경 PR에서 해결. 해결이 복잡하면 기능 소유자가
+   dev로 되돌아가 rebase 후 다시 승격 시도.
 
-## 기능별 상태 매트릭스 (예시)
+## 기능별 적용 시점
 
-| 기능      | dev | staging | main |
-|-----------|:---:|:-------:|:----:|
-| theme-toggle | ✅ | ✅ | ⬜ |
-| speed-control | ✅ | ✅ | ⬜ |
+staging/main 히스토리가 곧 "언제 어떤 기능이 그 환경에 들어갔나"의 대장이다.
+예: A는 staging에만, B는 staging+main에 — 모두 각자 다른 시점 cherry-pick으로 표현.
