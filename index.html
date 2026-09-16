@@ -17,6 +17,7 @@
     font-family: "Arial Black", "Segoe UI", sans-serif;
   }
 
+  /* 원근감 있는 3D 장면 */
   .scene {
     perspective: 800px;
   }
@@ -34,6 +35,7 @@
     font-weight: 900;
     color: #e0e6ff;
     transform-style: preserve-3d;
+    /* 겹쳐진 text-shadow로 3D 두께(익스트루전) 표현 */
     text-shadow:
       1px 1px 0 #6a7bd8,
       2px 2px 0 #5f6fc8,
@@ -50,6 +52,7 @@
   .word span:nth-child(odd)  { transform: translateZ(30px); }
   .word span:nth-child(even) { transform: translateZ(-30px); }
 
+  /* Y축 중심 회전 + X축 흔들림 */
   @keyframes spin {
     0%   { transform: rotateY(0deg)   rotateX(10deg); }
     50%  { transform: rotateY(180deg) rotateX(-10deg); }
